@@ -8,12 +8,6 @@
   [v]
   (when v (/ v 1000000.0)))
 
-(defn metric-name
-  [metric nam]
-  (if (string? metric)
-    (str metric "-" nam)
-    (conj (into [] metric) nam)))
-
 (defn start-timer
   [metric registry]
   (tmr/start
@@ -27,6 +21,14 @@
     (met/meter registry metric)
     (met/meter metric)))
 
+(def metric-path
+  (memoize
+   (fn [f metric]
+     (mapv f (if (or (string? metric)
+                     (keyword? metric))
+               [metric]
+               metric)))))
+
 (defn mk-tracker-xform
   [metric registry perf-chan]
   (let [timer (start-timer metric registry)]
@@ -34,24 +36,33 @@
      (fn [x]
        (try
          (if (instance? Exception x)
-           (do
-             (met/mark! (mk-meter (metric-name metric "failure") registry ))
-             (tmr/stop timer)
+           (let [latency (tmr/stop timer)
+                 mpath (metric-path keyword metric)
+                 mname (metric-path name metric)
+                 data (-> {}
+                          (assoc-in (conj mpath :call-duration) (ms latency))
+                          (assoc-in (conj mpath :success) false))]
+             (met/mark! (mk-meter (conj mname "failure") registry ))
+             (as/put! perf-chan data)
              x)
-           (let [latency (tmr/stop timer)]
-             (met/mark! (mk-meter (metric-name metric "success") registry))
-             (as/put! perf-chan {:call-duration (ms latency)})
+           (let [latency (tmr/stop timer)
+                 mpath (metric-path keyword metric)
+                 mname (metric-path name metric)
+                 data (-> {}
+                          (assoc-in (conj mpath :call-duration) (ms latency))
+                          (assoc-in (conj mpath :success) true))]
+             (met/mark! (mk-meter (conj mname "success") registry))
+             (as/put! perf-chan data)
              x))
          (catch Exception e
+           (println "Error tracking perf with geas: " e)
            x))))))
 
 (defn promise-chan
-  ([{:keys [metric call-name registry perf-chan] :or {call-name "default"
-                                                      metric    "default"}}
+  ([{:keys [metric registry perf-chan] :or {metric "default"}}
     xform ex-handler]
    (let [perf-atom (atom nil)
-         latency-xform (mk-tracker-xform (metric-name metric call-name)
-                                         registry perf-chan)
+         latency-xform (mk-tracker-xform metric registry perf-chan)
          comped (if xform
                   (comp latency-xform xform)
                   latency-xform)]
