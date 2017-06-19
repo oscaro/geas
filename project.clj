@@ -1,6 +1,6 @@
-(defproject geas "0.1.0-SNAPSHOT"
+(defproject geas "0.1.0"
   :description "Simple metrics instrumentation in Clojure for core.async workflow"
-  :url "http://example.com/FIXME"
+  :url "https://github.com/oscaro/geas"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.8.0"]
