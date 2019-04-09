@@ -9,9 +9,9 @@ For now , a simple example with `clj-http`:
 ```clojure
 (let [perf-chan (as/chan 50)
 	  resp-chan (geas/promise-chan {:registry registry ;; a metrics registry, optional
-									:perf-chan perf-chan
-									;; metric name in clj-metrics and data in perf-chan
-									:metric ["my-app" "my-call"]})]
+					:perf-chan perf-chan
+					;; metric name in clj-metrics and data in perf-chan
+					:metric ["my-app" "my-call"]})]
 
   (client/get "http://example.com/"
 			  {:async? true
